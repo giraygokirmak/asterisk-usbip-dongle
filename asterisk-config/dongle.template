@@ -1,0 +1,35 @@
+;
+; dongle.conf - Configuration for chan_dongle (GSM modem driver)
+; This file configures GSM modems/dongles for voice and SMS
+;
+
+[general]
+interval=15                    ; Number of seconds between trying to connect to devices
+
+[defaults]
+group=0                        ; Group number for calling
+rxgain=0                       ; Increase the incoming volume
+txgain=0                       ; Increase the outgoing volume
+autodeletesms=yes             ; Auto delete SMS after receiving
+resetdongle=yes               ; Reset dongle on startup
+u2diag=-1                     ; Huawei modems parameter
+usecallingpres=yes            ; Use calling presentation
+callingpres=allowed_passed_screen
+disablesms=no                 ; Enable SMS support
+smsaspdu=yes                   ; SMS mode ( PDU)
+
+; GSM Dongle 1 Configuration
+[dongle0]
+imei=$IMEI1                   ; IMEI of the dongle (optional)
+disable=no                    ; Enable this dongle
+dtmf=relax                   ; DTMF detection mode
+context=dongle-incoming       ; Context for incoming calls
+group=1                       ; Group for this dongle
+
+; GSM Dongle 2 Configuration (if you have multiple)
+;[dongle1]
+;imei=$IMEI2
+;disable=no
+;dtmf=relax                   ; DTMF detection mode
+;context=dongle-incoming
+;group=2

@@ -1,0 +1,73 @@
+;
+; extensions.conf - Basit GSM <--> SIP Gateway
+; Sadece arama ve SMS
+;
+
+[general]
+static=yes
+writeprotect=no
+clearglobalvars=no
+
+[globals]
+DONGLE=dongle0
+
+;=========================================
+; GSM'DEN GELEN ARAMALAR (GSM --> SIP)
+;=========================================
+
+[dongle-incoming]
+; Gelen aramalar extension 100'e
+exten => s,1,NoOp(Gelen arama: ${CALLERID(num)})
+    same => n,Dial(PJSIP/100,60,tT)
+    same => n,Hangup()
+
+; Gelen SMS'ler SIP MESSAGE olarak extension 100'e (PDU MODE)
+exten => sms,1,NoOp(Gelen SMS: ${SMSSRC})
+    same => n,Set(SMS_TEXT=${BASE64_DECODE(${SMS_BASE64})})
+    same => n,Set(SMS_FROM=${SMSSRC})
+    same => n,Set(SMS_TIME=${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)})
+    same => n,System(echo "${SMS_TIME} | From: ${SMS_FROM} | ${SMS_TEXT}" >> /var/log/asterisk/sms.log)
+    same => n,Set(MESSAGE(body)=${SMS_TEXT})
+    same => n,Set(MESSAGE(from)=sip:${SMS_FROM}@gateway)
+    same => n,MessageSend(pjsip:100,${MESSAGE(from)})
+    same => n,Hangup()
+
+;=========================================
+; EXTENSION 100'DEN ÇIKAN ARAMALAR (SIP --> GSM)
+;=========================================
+
+[from-internal]
+; Herhangi bir numara ara
+exten => _[+0-9].,1,NoOp(Arama: ${EXTEN})
+	same => n,Ringing()
+    same => n,Dial(Dongle/${DONGLE}/${EXTEN},60,tT)
+    same => n,Hangup()
+
+exten => *43,1,NoOp(Echo Test: ${CALLERID(all)})
+    same => n,Answer(500)            ; Bağlantı sonrası yarım saniye bekle
+    same => n,Echo()                 ; Ses döngüsü
+    same => n,Hangup()
+
+;=========================================
+; SIP MESSAGE --> SMS
+;=========================================
+
+[from-internal-message]
+; SIP Client'tan gelen MESSAGE'ları SMS olarak gönder
+exten => _[+0-9].,1,NoOp(SIP MESSAGE to SMS: ${EXTEN})
+    same => n,Set(DEST=${MESSAGE(to)})
+    same => n,Set(DEST=${CUT(DEST,:,2)})
+    same => n,Set(DEST=${CUT(DEST,@,1)})
+    same => n,Set(MSG=${MESSAGE(body)})
+    same => n,NoOp(Sending SMS to ${DEST}: ${MSG})
+    same => n,System(asterisk -rx "dongle sms ${DONGLE} ${DEST} ${MSG}")
+    same => n,Set(SMS_TIME=${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)})
+    same => n,System(echo "${SMS_TIME} | To: ${DEST} | ${MSG}" >> /var/log/asterisk/sms-sent.log)
+    same => n,Hangup()
+
+;=========================================
+; FALLBACK
+;=========================================
+
+[default]
+exten => _.,1,Hangup()

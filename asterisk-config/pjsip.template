@@ -1,0 +1,61 @@
+;
+; pjsip.conf - PJSIP Configuration for local SIP extensions
+; Standalone GSM Gateway - No external SIP provider needed
+;
+
+[global]
+max_forwards=70
+user_agent=Asterisk GSM Gateway
+default_realm=local.gsm.gateway
+
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:5060
+local_net=$LOCAL_NET
+; Only set these if you need external access:
+external_media_address=$PUBLIC_IP
+external_signaling_address=$PUBLIC_IP
+
+[transport-tcp]
+type=transport
+protocol=tcp
+bind=0.0.0.0:5060
+
+;=========================================
+; LOCAL SIP EXTENSION
+;=========================================
+
+[endpoint-basic](!)
+type=endpoint
+transport=transport-udp
+disallow=all
+allow=ulaw
+allow=alaw
+allow=gsm
+direct_media=no
+ice_support=yes
+force_rport=yes
+rewrite_contact=yes
+rtp_symmetric=yes
+trust_id_inbound=yes
+
+; Extension 100
+[100](endpoint-basic)
+auth=100
+aors=100
+context=from-internal
+message_context=from-internal-message
+callerid=Extension 100 <100>
+
+[100]
+type=auth
+auth_type=userpass
+password=$EXTEN_PASS
+username=100
+
+[100]
+type=aor
+max_contacts=1
+qualify_frequency=30
+remove_existing=yes

@@ -1,0 +1,11 @@
+# Trigger USB/IP binding when Huawei devices are connected
+# This rule triggers on USB device add/change events
+
+# Match Huawei devices specifically
+SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="usbip-huawei-bind.service"
+
+# Also trigger on any USB device add to catch Huawei modems that might show up as different modes
+SUBSYSTEM=="usb", ACTION=="add", TAG+="systemd", RUN+="/bin/systemctl start usbip-huawei-bind.service"
+
+# Trigger on USB bus reset events
+SUBSYSTEM=="usb", ACTION=="change", TAG+="systemd", RUN+="/bin/systemctl start usbip-huawei-bind.service"

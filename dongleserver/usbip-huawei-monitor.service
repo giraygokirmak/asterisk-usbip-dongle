@@ -1,0 +1,20 @@
+[Unit]
+Description=USB/IP Huawei Modem Monitor
+After=usbip-huawei-bind.service
+Requires=usbip-server.service
+BindsTo=usbip-server.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/usbip-huawei-bind.sh --monitor
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=usbip-huawei-monitor
+
+# Security
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+[Unit]
+Description=USB/IP Daemon
+Documentation=man:usbipd(8)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=forking
+ExecStartPre=/sbin/modprobe usbip-host
+ExecStart=/usr/bin/usbipd -D -4
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=always
+RestartSec=5
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=usbipd
+
+[Install]
+WantedBy=multi-user.target

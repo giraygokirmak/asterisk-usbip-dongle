@@ -1,0 +1,34 @@
+services:
+  asterisk:
+    container_name: asterisk-dongle
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: "host"
+    environment:
+      - IMEI1=${IMEI1}
+      - IMEI2=${IMEI2}
+      - LOCAL_NET=${LOCAL_NET}
+      - PUBLIC_IP=${PUBLIC_IP}
+      - EXTEN_PASS=${EXTEN_PASS}
+      - USB_IP=${USB_IP}
+      - USB_BIND=${USB_BIND}
+    volumes:
+      - ./asterisk-config/dongle.template:/tmp/dongle.template:ro
+      - ./asterisk-config/pjsip.template:/tmp/pjsip.template:ro
+      - ./asterisk-config/extensions.template:/etc/asterisk/extensions.conf:ro
+      - /dev:/dev
+      - /sys:/sys
+      - /lib/modules:/lib/modules:ro
+    command: >
+      sh -c "envsubst < /tmp/dongle.template > /etc/asterisk/dongle.conf && 
+             envsubst < /tmp/pjsip.template > /etc/asterisk/pjsip.conf &&
+             sh /usr/bin/usbip.sh &
+             mkdir -p /var/run/fail2ban &&
+             touch /var/log/asterisk/security.log &&
+             chown asterisk:asterisk /var/log/asterisk/security.log &&
+             chmod 660 /var/log/asterisk/security.log &&
+             /usr/bin/fail2ban-server -b -x start &&
+             exec /usr/sbin/asterisk -vvvdddf -T -W -U asterisk -p"
+    restart: unless-stopped
+    privileged: true

@@ -1,0 +1,20 @@
+[Unit]
+Description=USB/IP Huawei Modem Binding
+After=usbip-server.service
+Requires=usbip-server.service
+BindsTo=usbip-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/usbip-huawei-bind.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=usbip-huawei-bind
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
