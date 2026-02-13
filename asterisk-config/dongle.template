@@ -17,7 +17,7 @@ usecallingpres=yes            ; Use calling presentation
 callingpres=allowed_passed_screen
 disablesms=no                 ; Enable SMS support
 ;csencoding=yes
-smsaspdu=no                   ; SMS mode PDU
+smsaspdu=yes                   ; SMS mode PDU
 ;smsdecode=yes                  ; Modemden gelen PDU'yu metne çevirir.
 uim_state=yes                  ; SIM kart durumunu takip eder, E180 için iyidir.
 
