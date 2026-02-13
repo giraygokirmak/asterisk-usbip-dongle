@@ -16,7 +16,8 @@ u2diag=-1                     ; Huawei modems parameter
 usecallingpres=yes            ; Use calling presentation
 callingpres=allowed_passed_screen
 disablesms=no                 ; Enable SMS support
-smsaspdu=yes                   ; SMS mode ( PDU)
+csencoding=yes
+smsaspdu=no                   ; SMS mode text (not PDU)
 
 ; GSM Dongle 1 Configuration
 [dongle0]
