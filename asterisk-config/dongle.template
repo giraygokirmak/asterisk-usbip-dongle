@@ -18,7 +18,7 @@ callingpres=allowed_passed_screen
 disablesms=no                 ; Enable SMS support
 csencoding=yes
 smsaspdu=yes                   ; SMS mode PDU
-smsdecode = yes        ; Modemden gelen PDU'yu metne çevirir.
+smsdecode = no        ; Modemden gelen PDU'yu metne çevirir.
 uim_state = yes        ; SIM kart durumunu takip eder, E180 için iyidir.
 
 ; GSM Dongle 1 Configuration
