@@ -17,7 +17,7 @@ DONGLE=dongle0
 
 [dongle-incoming]
 ; Gelen aramalar extension 100'e
-exten => s,1,NoOp(Gelen arama: ${CALLERID(num)})
+exten => _.,1,NoOp(Gelen arama: ${CALLERID(num)} -> ${EXTEN})
     same => n,Dial(PJSIP/100,60,tT)
     same => n,Hangup()
 
