@@ -28,7 +28,7 @@ exten => sms,1,NoOp(Gelen SMS: ${SMSSRC})
     same => n,Set(SMS_TIME=${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)})
     same => n,System(echo "${SMS_TIME} | From: ${SMS_FROM} | ${SMS_TEXT}" >> /var/log/asterisk/sms.log)
     same => n,Set(MESSAGE(body)=${SMS_TEXT})
-    same => n,Set(MESSAGE(from)=sip:${SMS_FROM}@gateway)
+    same => n,Set(MESSAGE(from)="${SMS_FROM}" <sip:${SMS_FROM}@gateway>)
     same => n,MessageSend(pjsip:100,${MESSAGE(from)})
     same => n,Hangup()
 
