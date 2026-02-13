@@ -24,6 +24,7 @@ uim_state=yes                  ; SIM kart durumunu takip eder, E180 için iyidir
 ; GSM Dongle 1 Configuration
 [dongle0]
 imei=$IMEI1                   ; IMEI of the dongle (optional)
+initseq=AT+CSCS="GSM"
 disable=no                    ; Enable this dongle
 dtmf=relax                   ; DTMF detection mode
 context=dongle-incoming       ; Context for incoming calls
