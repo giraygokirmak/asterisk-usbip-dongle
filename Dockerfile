@@ -56,9 +56,8 @@ RUN echo "Configuring Asterisk source and generating headers..." && \
 # Clone and build chan_dongle with configured Asterisk headers
 WORKDIR /tmp/build
 COPY ucs2_sms_fix.patch /tmp/build
-RUN git clone https://github.com/wdoekes/asterisk-chan-dongle.git && \
+RUN git clone https://github.com/giraygokirmak/asterisk-chan-dongle.git && \
     cd asterisk-chan-dongle && \
-    patch -p1 < /tmp/build/ucs2_sms_fix.patch && \
     ./bootstrap && \
     ASTERISK_VERSION=$(asterisk -V 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1) && \
     echo "Configuring chan_dongle for Asterisk $ASTERISK_VERSION..." && \
