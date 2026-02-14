@@ -1,0 +1,24 @@
+--- a/pdu.c
++++ b/pdu.c
+@@ -934,10 +934,22 @@ EXPORT_DEF int tpdu_parse_deliver(const uint8_t *pdu, size_t pdu_length, int tp
+ 			chan_dongle_err = E_DECODE_GSM7;
+ 			return -1;
+ 		}
+-	} else {
++	} else if (alphabet == PDU_DCS_ALPHABET_UCS2) {
++		/* UCS-2 (UTF-16 Big Endian) - convert byte pairs to uint16_t with correct byte order */
+ 		out_len = msg_len / 2;
+-		memcpy((char*)msg, pdu + i, msg_len);
++		int j;
++		for (j = 0; j < out_len; j++) {
++			/* Read as UTF-16 Big Endian: high byte first, then low byte */
++			msg[j] = (pdu[i + j * 2] << 8) | pdu[i + j * 2 + 1];
++		}
+ 		msg[out_len] = '\0';
++	} else {
++		/* 8-bit alphabet - not supported, but handle gracefully */
++		chan_dongle_err = E_INVALID_CHARSET;
++		return -1;
+ 	}
+ 	msg[out_len] = '\0';
+ 
