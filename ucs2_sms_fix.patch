@@ -22,3 +22,4 @@
  	}
  	msg[out_len] = '\0';
  
+ 	return out_len;
