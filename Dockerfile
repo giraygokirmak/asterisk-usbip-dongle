@@ -58,7 +58,7 @@ WORKDIR /tmp/build
 COPY ucs2_sms_fix.patch /tmp/build/asterisk-chan-dongle
 RUN git clone https://github.com/wdoekes/asterisk-chan-dongle.git && \
     cd asterisk-chan-dongle && \
-    patch -p1 < ucs2_sms_fix.patch
+    patch -p1 < ucs2_sms_fix.patch && \
     ./bootstrap && \
     ASTERISK_VERSION=$(asterisk -V 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1) && \
     echo "Configuring chan_dongle for Asterisk $ASTERISK_VERSION..." && \
