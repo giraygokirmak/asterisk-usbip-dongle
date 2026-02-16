@@ -95,7 +95,8 @@ RUN apt-get purge -y \
     wget \
     && apt-get autoremove -y \
     && rm -rf /tmp/build /tmp/asterisk-* /usr/src/asterisk
-	
+COPY decode_sms.py /usr/local/bin/
+RUN chmod +x /usr/local/bin/decode_sms.py	
 COPY jail.local /etc/fail2ban/jail.local
 COPY asterisk-filter.conf /etc/fail2ban/filter.d/asterisk.conf	
 COPY usbip.sh /usr/bin/usbip.sh
