@@ -8,7 +8,7 @@ echo "DONGLE TAKIP SISTEMI BASLATILDI ($CLEAN_IP)"
 
 while true; do
     # ADIM 1: Huawei cihaz fiziksel olarak bağlı mı?
-    if lsusb 2>/dev/null | grep -qi "huawei"; then
+    if lsusb 2>/dev/null | grep "Huawei"; then
         # Huawei var, tüm ttyUSB portlarının permission'larını düzelt
         chmod 777 /dev/ttyUSB* 2>/dev/null
         sleep 30
