@@ -35,6 +35,15 @@ exten => sms,1,NoOp(Gelen SMS: ${CALLERID(num)} : b64 raw: ${SMS_BASE64})
     same => n,MessageSend(pjsip:100,${MESSAGE(from)})
     same => n,Hangup()
 
+exten => report,1,NoOp(SMS Delivery Report: Ref ${SMS_REPORT_REFERENCE} To ${CALLERID(num)} Status ${SMS_REPORT_STATUS})
+    same => n,Set(REPORT_TIME=${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)})
+    same => n,Set(REPORT_TEXT=SMS Delivery Report - To: ${CALLERID(num)} | Ref: ${SMS_REPORT_REFERENCE} | Status: ${SMS_REPORT_STATUS})
+    same => n,System(echo "${REPORT_TIME} | ${REPORT_TEXT}" >> /var/log/asterisk/sms-delivery.log)
+    same => n,Set(MESSAGE(body)=${REPORT_TEXT})
+    same => n,Set(MESSAGE(from)="REPORT")
+    same => n,MessageSend(pjsip:100,${MESSAGE(from)})
+    same => n,Hangup()
+
 ;=========================================
 ; EXTENSION 100'DEN ÇIKAN ARAMALAR (SIP --> GSM)
 ;=========================================
@@ -74,3 +83,4 @@ exten => _[+0-9].,1,NoOp(SIP MESSAGE to SMS: ${EXTEN})
 
 [default]
 exten => _.,1,Hangup()
+
