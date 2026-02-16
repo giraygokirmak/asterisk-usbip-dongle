@@ -12,7 +12,6 @@ services:
       - PUBLIC_IP=${PUBLIC_IP}
       - EXTEN_PASS=${EXTEN_PASS}
       - USB_IP=${USB_IP}
-      - USB_BIND=${USB_BIND}
     volumes:
       - ./asterisk-config/dongle.template:/tmp/dongle.template:ro
       - ./asterisk-config/pjsip.template:/tmp/pjsip.template:ro
