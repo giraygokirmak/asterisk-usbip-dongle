@@ -55,8 +55,10 @@ RUN echo "Configuring Asterisk source and generating headers..." && \
 
 # Clone and build chan_dongle with configured Asterisk headers
 WORKDIR /tmp/build
+COPY cmgr-ucs2-final.patch /tmp/build
 RUN git clone https://github.com/wdoekes/asterisk-chan-dongle.git && \
     cd asterisk-chan-dongle && \
+    patch -p0 < /tmp/build/cmgr-ucs2-final.patch && \
     ./bootstrap && \
     ASTERISK_VERSION=$(asterisk -V 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1) && \
     echo "Configuring chan_dongle for Asterisk $ASTERISK_VERSION..." && \
