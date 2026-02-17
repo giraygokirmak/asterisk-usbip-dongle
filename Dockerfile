@@ -55,10 +55,8 @@ RUN echo "Configuring Asterisk source and generating headers..." && \
 
 # Clone and build chan_dongle with configured Asterisk headers
 WORKDIR /tmp/build
-COPY cmgr-ucs2-final.patch /tmp/build
-RUN git clone https://github.com/wdoekes/asterisk-chan-dongle.git && \
+RUN git clone https://github.com/giraygokirmak/asterisk-chan-dongle.git && \
     cd asterisk-chan-dongle && \
-    patch -p0 < /tmp/build/cmgr-ucs2-final.patch && \
     ./bootstrap && \
     ASTERISK_VERSION=$(asterisk -V 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1) && \
     echo "Configuring chan_dongle for Asterisk $ASTERISK_VERSION..." && \
@@ -95,8 +93,7 @@ RUN apt-get purge -y \
     wget \
     && apt-get autoremove -y \
     && rm -rf /tmp/build /tmp/asterisk-* /usr/src/asterisk
-COPY decode_sms.py /usr/local/bin/
-RUN chmod +x /usr/local/bin/decode_sms.py	
+
 COPY jail.local /etc/fail2ban/jail.local
 COPY asterisk-filter.conf /etc/fail2ban/filter.d/asterisk.conf	
 COPY usbip.sh /usr/bin/usbip.sh
