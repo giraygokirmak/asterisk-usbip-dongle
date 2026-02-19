@@ -1,82 +1,124 @@
 #!/bin/sh
 
+LOGFILE="/var/log/usbip-watchdog.log"
+
+log() {
+echo "$(date '+%F %T') | $1" | tee -a "$LOGFILE"
+}
+
 CLEAN_IP=$(echo "$USB_IP" | tr -d '\r\n ')
 
-echo "DONGLE TAKIP SISTEMI BASLATILDI (Hedef IP: $CLEAN_IP)"
+log "USBIP watchdog started (target: $CLEAN_IP)"
 
-# Uzaktaki sunucudan Huawei cihazın BIND ID'sini otomatik bul
-find_remote_bind_id() {
-    # usbip list çıktısında 12d1 (Huawei) içeren satırı bul ve başındaki busid'yi al
-    usbip list -r "$CLEAN_IP" 2>/dev/null | grep "12d1:" | awk '{print $1}' | tr -d ' ' | head -n 1
+modprobe vhci-hcd 2>/dev/null
+modprobe usbip-core 2>/dev/null
+
+wait_for_network() {
+until ping -c1 -W1 "$CLEAN_IP" >/dev/null 2>&1; do
+log "Network not ready, waiting..."
+sleep 2
+done
 }
 
-# Huawei cihazına ait yerel ttyUSB portlarını bul
-find_huawei_ports() {
-    for tty in /sys/class/tty/ttyUSB*/device/../../; do
-        if [ -f "$tty/idVendor" ]; then
-            vendor=$(cat "$tty/idVendor" 2>/dev/null)
-            if [ "$vendor" = "12d1" ]; then
-                find "$tty" -name "ttyUSB*" 2>/dev/null | while read ttypath; do
-                    basename "$ttypath"
-                done
-            fi
-        fi
-    done | sort -u
+find_remote_devices() {
+usbip list -r "$CLEAN_IP" 2>/dev/null 
+| grep "12d1:" 
+| awk '{print $1}'
 }
 
-get_huawei_devices() {
-    find_huawei_ports | while read port; do
-        echo "/dev/$port"
-    done
+device_present() {
+lsusb | grep -q "12d1:"
 }
 
-check_huawei_exists() {
-    PORTS=$(get_huawei_devices)
-    [ -n "$PORTS" ]
-    return $?
+get_tty_ports() {
+ls /dev/ttyUSB* 2>/dev/null
+}
+
+wait_for_tty() {
+log "Waiting for tty ports..."
+for i in $(seq 1 30); do
+PORTS=$(get_tty_ports)
+[ -n "$PORTS" ] && return 0
+sleep 1
+done
+return 1
+}
+
+already_attached_busid() {
+BUSID=$1
+usbip port 2>/dev/null | grep -q "$BUSID"
+}
+
+cleanup_ghost_ports() {
+for PORT in $(usbip port 2>/dev/null | grep "$CLEAN_IP" | sed -n 's/.*Port ([0-9]+).*/\1/p'); do
+log "Cleaning stale port: $PORT"
+usbip detach -p "$PORT" 2>/dev/null
+sleep 1
+done
+}
+
+attach_devices() {
+
+```
+DEVICES=$(find_remote_devices)
+
+if [ -z "$DEVICES" ]; then
+    log "No remote Huawei devices found"
+    return
+fi
+
+for BUSID in $DEVICES; do
+
+    if already_attached_busid "$BUSID"; then
+        log "Already attached: $BUSID"
+        continue
+    fi
+
+    log "Attaching device $BUSID"
+
+    usbip attach -r "$CLEAN_IP" -b "$BUSID" >>"$LOGFILE" 2>&1
+
+    if [ $? -ne 0 ]; then
+        log "Attach failed for $BUSID"
+        continue
+    fi
+
+    sleep 2
+done
+
+sleep 3
+
+if wait_for_tty; then
+    PORTS=$(get_tty_ports)
+    chmod 777 $PORTS 2>/dev/null
+    log "Devices ready: $PORTS"
+    asterisk -rx "dongle reload gracefully" >/dev/null 2>&1
+else
+    log "TTY ports not detected"
+fi
+```
+
 }
 
 while true; do
-    # ADIM 1: Yerelde cihaz var mı kontrol et
-    if check_huawei_exists; then
-        PORTS=$(get_huawei_devices)
-        chmod 777 $PORTS 2>/dev/null
-        sleep 30
-        continue
-    fi
 
-    echo "Huawei cihaz bulunamadı, yeniden bağlanılacak..."
-    
-    # ADIM 2: Hayalet port temizle
-    GHOST_PORT=$(usbip port 2>/dev/null | grep "<In Use>" | sed 's/.*Port \([0-9]\{1,2\}\):.*/\1/' | head -n 1)
-    if [ -n "$GHOST_PORT" ]; then
-        echo "Hayalet port temizleniyor (Port: $GHOST_PORT)..."
-        usbip detach -p "$GHOST_PORT" 2>/dev/null
-        sleep 2
-    fi
+```
+wait_for_network
 
-    # ADIM 3: Dinamik BIND ID Al ve Bağlan
-    DYNAMIC_BIND=$(find_remote_bind_id)
+if device_present; then
+    PORTS=$(get_tty_ports)
+    chmod 777 $PORTS 2>/dev/null
+    sleep 30
+    continue
+fi
 
-    if [ -z "$DYNAMIC_BIND" ]; then
-        echo "HATA: Uzak sunucuda ($CLEAN_IP) Huawei cihaz bulunamadı! 10sn sonra tekrar denenecek."
-        sleep 10
-        continue
-    fi
+cleanup_ghost_ports
 
-    echo "Cihaz bulundu. ID: $DYNAMIC_BIND üzerinden bağlanılıyor..."
-    usbip attach -r "$CLEAN_IP" -b "$DYNAMIC_BIND" > /dev/null 2>&1
-    
-    sleep 5
+log "Huawei device missing, attempting reconnect..."
+attach_devices
 
-    # ADIM 4: Bağlantı sonrası kontrol
-    if check_huawei_exists; then
-        PORTS=$(get_huawei_devices)
-        echo "Bağlantı başarılı! Cihaz ID: $DYNAMIC_BIND | Portlar: $PORTS"
-        
-        chmod 777 $PORTS 2>/dev/null
-        asterisk -rx "dongle reload gracefully" > /dev/null 2>&1
-    fi
+sleep 10
+```
 
-    sleep 10
 done
+
