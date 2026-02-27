@@ -18,11 +18,8 @@ wait_for_network() {
 find_remote_devices() {
     usbip list -r "$CLEAN_IP" 2>/dev/null \
         | grep "12d1:" \
-        | awk '{print $1}'
-}
-
-device_present() {
-    lsusb | grep -q "12d1:"
+        | awk '{print $1}' \
+        | tr -d ':'
 }
 
 get_tty_ports() {
@@ -39,14 +36,20 @@ wait_for_tty() {
     return 1
 }
 
-already_attached_busid() {
-    BUSID=$1
-    usbip port 2>/dev/null | grep -q "$BUSID"
+# Check if device is truly working: attached via usbip AND tty ports visible
+device_present() {
+    usbip port 2>/dev/null | grep -q "12d1:" && [ -n "$(get_tty_ports)" ]
 }
 
+# Detach ALL currently attached usbip ports to ensure a clean slate
 cleanup_ghost_ports() {
-    for PORT in $(usbip port 2>/dev/null | grep "$CLEAN_IP" | sed -n 's/.*Port \([0-9]*\).*/\1/p'); do
-        log "Cleaning stale port: $PORT"
+    PORTS=$(usbip port 2>/dev/null | grep "^usbip port\|^Port " | sed -n 's/.*Port \([0-9][0-9]*\).*/\1/p')
+    if [ -z "$PORTS" ]; then
+        # Alternative format used by some versions
+        PORTS=$(usbip port 2>/dev/null | awk '/^Port/{print $2}' | tr -d ':')
+    fi
+    for PORT in $PORTS; do
+        log "Detaching stale port: $PORT"
         usbip detach -p "$PORT" 2>/dev/null
         sleep 1
     done
@@ -55,43 +58,50 @@ cleanup_ghost_ports() {
 attach_devices() {
     DEVICES=$(find_remote_devices)
     if [ -z "$DEVICES" ]; then
-        log "No remote Huawei devices found"
-        return
+        log "No remote Huawei devices found on $CLEAN_IP"
+        return 1
     fi
     for BUSID in $DEVICES; do
-        if already_attached_busid "$BUSID"; then
-            log "Already attached: $BUSID"
-            continue
-        fi
-        log "Attaching device $BUSID"
+        log "Attaching device $BUSID from $CLEAN_IP"
         usbip attach -r "$CLEAN_IP" -b "$BUSID" >>"$LOGFILE" 2>&1
         if [ $? -ne 0 ]; then
             log "Attach failed for $BUSID"
-            continue
+            return 1
         fi
         sleep 2
     done
+
     sleep 3
     if wait_for_tty; then
         PORTS=$(get_tty_ports)
         chmod 777 $PORTS 2>/dev/null
         log "Devices ready: $PORTS"
         asterisk -rx "dongle reload gracefully" >/dev/null 2>&1
+        return 0
     else
-        log "TTY ports not detected"
+        log "TTY ports not detected after attach — will retry"
+        return 1
     fi
 }
 
 while true; do
     wait_for_network
+
     if device_present; then
         PORTS=$(get_tty_ports)
         chmod 777 $PORTS 2>/dev/null
         sleep 30
         continue
     fi
+
+    log "Huawei device missing or tty gone, cleaning up and reconnecting..."
     cleanup_ghost_ports
-    log "Huawei device missing, attempting reconnect..."
-    attach_devices
+    sleep 2
+
+    attach_devices || {
+        log "Attach cycle failed, retrying in 10s..."
+        sleep 10
+    }
+
     sleep 10
 done

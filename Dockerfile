@@ -7,6 +7,7 @@ RUN apt-get update && \
     apt-get install -y \
 	usbip \
 	hwdata \
+    iputils-ping \    
     fail2ban \
     iptables \
     gettext-base \
