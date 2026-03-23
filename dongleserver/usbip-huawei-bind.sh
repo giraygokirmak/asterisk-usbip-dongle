@@ -44,10 +44,11 @@ check_usbipd() {
 }
 
 # Function to get currently bound devices (bound to usbip-host driver)
+# get_bound_devices() fonksiyonunu değiştir:
 get_bound_devices() {
-    # A device is "bound" if it's using the usbip-host driver
-    # Format from 'usbip list -l' shows driver in parentheses like (usbip-host)
-    usbip list -l 2>/dev/null | grep -B1 "usbip-host" | awk '/busid/ {print $1}' | tr -d ',' || echo ""
+    ls /sys/bus/usb/drivers/usbip-host/ 2>/dev/null \
+        | grep -E '^[0-9]+-[0-9]' \
+        | tr '\n' ',' | sed 's/,$//' || echo ""
 }
 
 # Function to unbind a device
@@ -75,7 +76,7 @@ bind_device() {
     fi
     
     # Check if already bound to usbip-host driver
-    if usbip list -l 2>/dev/null | grep -A1 "$busid" | grep -q "usbip-host"; then
+    if [ -e "/sys/bus/usb/drivers/usbip-host/$busid" ]; then
         log "Device $busid is already bound to usbip-host - skipping (DO NOT DISTURB ACTIVE CONNECTIONS)"
         return 0
     fi
