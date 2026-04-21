@@ -7,15 +7,16 @@
 interval=15                    ; Number of seconds between trying to connect to devices
 
 [defaults]
+initdelay=3                    ; USB bağlandıktan sonra init öncesi bekle (E180 yavaş)
 group=0                        ; Group number for calling
 rxgain=0                       ; Increase the incoming volume
 txgain=0                       ; Increase the outgoing volume
-autodeletesms=yes             ; Auto delete SMS after receiving
-resetdongle=yes               ; Reset dongle on startup
-u2diag=-1                     ; Huawei modems parameter
-usecallingpres=yes            ; Use calling presentation
+autodeletesms=yes              ; Auto delete SMS after receiving
+resetdongle=yes                ; Reset dongle on startup
+u2diag=-1                      ; Huawei modems parameter
+usecallingpres=yes             ; Use calling presentation
 callingpres=allowed_passed_screen
-disablesms=no                 ; Enable SMS support
+disablesms=no                  ; Enable SMS support
 csencoding=yes
 smsaspdu=yes                   ; SMS mode PDU
 ;smsdecode=yes                  ; Modemden gelen PDU'yu metne çevirir.
@@ -23,9 +24,10 @@ uim_state=yes                  ; SIM kart durumunu takip eder, E180 için iyidir
 
 ; GSM Dongle 1 Configuration
 [dongle0]
+initstring=AT+CFUN=1          ; GSM radyoyu force-enable et — "not ready" sonrası kurtarır
 imei=$IMEI1                   ; IMEI of the dongle (optional)
 disable=no                    ; Enable this dongle
-dtmf=relax                   ; DTMF detection mode
+dtmf=relax                    ; DTMF detection mode
 context=dongle-incoming       ; Context for incoming calls
 group=1                       ; Group for this dongle
 
