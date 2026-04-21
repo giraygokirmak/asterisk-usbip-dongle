@@ -3,7 +3,9 @@
 # USB/IP Huawei Modem Binding Script
 # This script automatically detects and binds Huawei modems for USB/IP sharing
 
-set -euo pipefail
+# REMOVED: set -euo pipefail — caused crash-loop when bind returned non-zero
+# (e.g. "already bound"), killing the monitor loop and disrupting active connections.
+set -uo pipefail
 
 LOGFILE="/var/log/usbip-huawei.log"
 LOCKFILE="/var/run/usbip-huawei.lock"
@@ -43,91 +45,99 @@ check_usbipd() {
     return 0
 }
 
-# Function to get currently bound devices (bound to usbip-host driver)
-get_bound_devices() {
-    # A device is "bound" if it's using the usbip-host driver
-    # Format from 'usbip list -l' shows driver in parentheses like (usbip-host)
-    usbip list -l 2>/dev/null | grep -B1 "usbip-host" | awk '/busid/ {print $1}' | tr -d ',' || echo ""
+# Function to check if a device is currently bound to usbip-host
+# Uses sysfs — reliable, no text parsing required.
+is_bound() {
+    local busid=$1
+    [ -e "/sys/bus/usb/drivers/usbip-host/$busid" ]
 }
 
-# Function to unbind a device
-unbind_device() {
+# Function to check if a device is currently attached by a remote client
+# When attached, the device symlink moves from usbip-host to usbip-vudc or similar.
+# The reliable signal: device is NOT listed as exportable by usbipd.
+# We detect this by checking if the usbip-host entry exists but device is in use:
+is_attached_by_client() {
     local busid=$1
-    log "Unbinding device: $busid"
-    if sudo usbip unbind -b "$busid" 2>/dev/null; then
-        log "Successfully unbound $busid"
-        return 0
-    else
-        log "Warning: Failed to unbind $busid (may not have been bound)"
-        return 1
+    # If bound to usbip-host AND in usbipd's "in use" state,
+    # sysfs shows the device but status file reads "used"
+    local status_file="/sys/bus/usb/drivers/usbip-host/$busid/usbip_status"
+    if [ -f "$status_file" ]; then
+        local status
+        status=$(cat "$status_file" 2>/dev/null || echo "0")
+        # status 1 = available, status 2 = used by client, status 3 = error
+        [ "$status" = "2" ] && return 0
     fi
+    return 1
 }
 
 # Function to bind a device
 bind_device() {
     local busid=$1
     log "Checking device: $busid"
-    
-    # Check if device exists
+
+    # Check if device exists in local USB tree
     if ! usbip list -l 2>/dev/null | grep -q "$busid"; then
         log "ERROR: Device $busid not found in local USB devices"
         return 1
     fi
-    
-    # Check if already bound to usbip-host driver
-    if usbip list -l 2>/dev/null | grep -A1 "$busid" | grep -q "usbip-host"; then
-        log "Device $busid is already bound to usbip-host - skipping (DO NOT DISTURB ACTIVE CONNECTIONS)"
+
+    # FIX: Use sysfs instead of 'usbip list -l | grep -A1' (which only checks
+    # one line after busid and misses the driver field).
+    if is_bound "$busid"; then
+        if is_attached_by_client "$busid"; then
+            log "Device $busid is bound and actively used by a client — not touching it"
+        else
+            log "Device $busid is already bound to usbip-host — skipping"
+        fi
         return 0
     fi
-    
-    # Device exists but is not bound - safe to bind now
+
+    # Device exists but is not bound — safe to bind
     log "Binding device: $busid"
-    if sudo usbip bind -b "$busid" 2>&1 | tee -a "$LOGFILE"; then
+    local bind_output
+    bind_output=$(sudo usbip bind -b "$busid" 2>&1)
+    local bind_rc=$?
+    echo "$bind_output" | tee -a "$LOGFILE"
+
+    if [ $bind_rc -eq 0 ]; then
         log "Successfully bound $busid"
         return 0
-    else
-        log "ERROR: Failed to bind $busid"
-        return 1
     fi
+
+    # usbip bind exits non-zero even for "already bound" — treat that as success
+    if echo "$bind_output" | grep -q "already bound"; then
+        log "Device $busid was already bound (race condition) — OK"
+        return 0
+    fi
+
+    log "ERROR: Failed to bind $busid (rc=$bind_rc)"
+    return 1
 }
 
 # Main function to detect and bind Huawei modems
 bind_huawei_modems() {
     log "Scanning for Huawei modems..."
-    
+
     # Get all Huawei device bus IDs
     HUAWEI_BUSBIDS=$(usbip list -l 2>/dev/null | awk '/busid/ {id=$3} /Huawei/ {print id}' | paste -sd "," -)
-    
+
     if [ -z "$HUAWEI_BUSBIDS" ]; then
         log "No Huawei modems detected"
         return 0
     fi
-    
+
     log "Found Huawei modems: $HUAWEI_BUSBIDS"
-    
-    # Get currently bound devices
-    BOUND_DEVICES=$(get_bound_devices)
-    
+
     # Convert comma-separated list to array
     IFS=',' read -ra BUSID_ARRAY <<< "$HUAWEI_BUSBIDS"
-    
-    # Bind each device
+
+    # Bind each device (bind_device handles already-bound gracefully)
     for busid in "${BUSID_ARRAY[@]}"; do
-        # Trim whitespace
         busid=$(echo "$busid" | xargs)
-        
-        if [ -z "$busid" ]; then
-            continue
-        fi
-        
-        # Check if already bound
-        if echo "$BOUND_DEVICES" | grep -q "$busid"; then
-            log "Device $busid is already bound, skipping"
-        else
-            bind_device "$busid"
-        fi
+        [ -z "$busid" ] && continue
+        bind_device "$busid" || true   # never let a single device failure abort the loop
     done
-    
+
     log "Binding process completed"
 }
 
@@ -150,19 +160,16 @@ bind_huawei_modems
 # If running in continuous mode (with argument)
 if [ "${1:-}" = "--monitor" ]; then
     log "Entering monitor mode..."
-    
-    # Monitor mode - continuously check for devices
+
     while true; do
-        sleep 30  # Check every 30 seconds (reduced from 10 to minimize overhead)
-        
-        # Check if usbipd is still running
+        sleep 30
+
         if ! check_usbipd; then
             log "WARNING: usbipd stopped running!"
             sleep 5
             continue
         fi
-        
-        # Re-scan and bind if needed (only binds unbound devices)
+
         bind_huawei_modems
     done
 else
