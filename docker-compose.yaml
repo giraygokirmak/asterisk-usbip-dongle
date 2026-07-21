@@ -1,6 +1,7 @@
 services:
   asterisk:
     container_name: asterisk-dongle
+    init: true
     build:
       context: .
       dockerfile: Dockerfile
