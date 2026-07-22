@@ -605,3 +605,42 @@ For issues and questions:
 ---
 
 **Note:** This system is designed for technical users familiar with Linux, Docker, and VoIP systems. Always test in a development environment before deploying to production.
+
+## USB/IP Recovery and Upgrade Safety
+
+USB/IP now runs in the dedicated usbip-client sidecar. The Asterisk container
+does not attach or detach host kernel devices, so it can be restarted
+independently while USB/IP is recovering.
+
+The reconciler discovers Huawei devices (12d1 by default), correlates each
+remote bus ID with its specific VHCI port and sysfs tty descendants, and only
+detaches that port when it is stale. Every usbip operation has a deadline and
+failed recovery backs off from 10 seconds to 5 minutes. Recovery continues
+indefinitely. Normal container shutdown never detaches USB devices.
+
+Before deployment on the Asterisk host:
+
+    sudo apt install usbip linux-tools-$(uname -r) linux-modules-extra-$(uname -r)
+    sudo modprobe vhci-hcd
+    source env.sh
+    docker compose build
+    docker compose up -d
+    docker compose ps
+
+The PBX and USB/IP health states are separate. Use:
+
+    docker compose restart asterisk
+    docker compose restart usbip-client
+    docker compose logs -f usbip-client
+    ./support-bundle.sh
+
+If ps in the support bundle shows a USB/IP process in D state, it is blocked
+inside the host kernel and cannot be killed by Docker. Preserve the bundle and
+perform a controlled host reboot; repeatedly restarting Docker cannot clear an
+uninterruptible kernel task.
+
+For reproducible production builds, set ASTERISK_BASE_IMAGE to an image
+reference with a tested digest (repository@sha256:...) using a Compose build
+argument override. The chan_dongle source is pinned in the Dockerfile. Upgrade
+the base digest, kernel, and USB/IP packages in a staging run and complete a
+disconnect/reconnect soak test before production rollout.

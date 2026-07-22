@@ -16,19 +16,19 @@ fi
 
 # Stop and disable services
 echo "[1/4] Stopping and disabling services..."
-systemctl stop usbip-huawei-monitor.service 2>/dev/null || true
+systemctl stop usbip-huawei-bind.timer 2>/dev/null || true
 systemctl stop usbip-huawei-bind.service 2>/dev/null || true
 systemctl stop usbip-server.service 2>/dev/null || true
 
-systemctl disable usbip-huawei-monitor.service 2>/dev/null || true
-systemctl disable usbip-huawei-bind.service 2>/dev/null || true
+systemctl disable usbip-huawei-bind.timer 2>/dev/null || true
+
 systemctl disable usbip-server.service 2>/dev/null || true
 
 # Remove systemd service files
 echo "[2/4] Removing systemd service files..."
 rm -f /etc/systemd/system/usbip-server.service
 rm -f /etc/systemd/system/usbip-huawei-bind.service
-rm -f /etc/systemd/system/usbip-huawei-monitor.service
+rm -f /etc/systemd/system/usbip-huawei-bind.timer
 
 # Remove udev rule
 echo "[3/4] Removing udev rule..."

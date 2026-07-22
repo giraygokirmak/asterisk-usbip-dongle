@@ -1,4 +1,5 @@
-FROM andrius/asterisk:latest
+ARG ASTERISK_BASE_IMAGE=andrius/asterisk@sha256:4cfb208f877b45e88115b35140b1edba06e1374e9bce4b6f5e55a84e60254b92
+FROM ${ASTERISK_BASE_IMAGE}
 
 USER root
 
@@ -7,7 +8,8 @@ RUN apt-get update && \
     apt-get install -y \
 	usbip \
 	hwdata \
-    iputils-ping \    
+    coreutils \
+    iputils-ping \
     fail2ban \
     iptables \
     gettext-base \
@@ -56,8 +58,10 @@ RUN echo "Configuring Asterisk source and generating headers..." && \
 
 # Clone and build chan_dongle with configured Asterisk headers
 WORKDIR /tmp/build
+ARG CHAN_DONGLE_COMMIT=0b7a6a49b3a3164da84090a7d73536643ce4fb56
 RUN git clone https://github.com/giraygokirmak/asterisk-chan-dongle.git && \
     cd asterisk-chan-dongle && \
+    git checkout "$CHAN_DONGLE_COMMIT" && \
     ./bootstrap && \
     ASTERISK_VERSION=$(asterisk -V 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -n1) && \
     echo "Configuring chan_dongle for Asterisk $ASTERISK_VERSION..." && \
@@ -98,6 +102,8 @@ RUN apt-get purge -y \
 COPY jail.local /etc/fail2ban/jail.local
 COPY asterisk-filter.conf /etc/fail2ban/filter.d/asterisk.conf	
 COPY usbip.sh /usr/bin/usbip.sh
+COPY asterisk-entrypoint.sh /usr/bin/asterisk-entrypoint.sh
+RUN chmod 755 /usr/bin/usbip.sh /usr/bin/asterisk-entrypoint.sh
 RUN echo "security.log => security" >> /etc/asterisk/logger.conf
 
 WORKDIR /

@@ -332,3 +332,14 @@ For issues, please check:
 1. System logs: `journalctl -xe`
 2. USB/IP documentation: `man usbip`
 3. Verify USB device is visible: `lsusb`
+
+## Reconcile service
+
+The server uses usbip-huawei-bind.service as an idempotent oneshot reconciler.
+usbip-huawei-bind.timer runs it every 30 seconds, while the Huawei-only udev
+rule requests an immediate run on device insertion. There is no continuous
+monitor process and udev never invokes systemctl synchronously.
+
+    systemctl status usbip-server.service usbip-huawei-bind.timer
+    systemctl start usbip-huawei-bind.service
+    journalctl -u usbip-server.service -u usbip-huawei-bind.service

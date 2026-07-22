@@ -1,34 +1,76 @@
 services:
+  usbip-client:
+    container_name: asterisk-usbip-client
+    init: true
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ASTERISK_BASE_IMAGE: ${ASTERISK_BASE_IMAGE:-andrius/asterisk@sha256:4cfb208f877b45e88115b35140b1edba06e1374e9bce4b6f5e55a84e60254b92}
+    entrypoint: ["/usr/bin/usbip.sh"]
+    network_mode: "host"
+    environment:
+      USB_IP: ${USB_IP}
+      USBIP_VENDOR_ID: ${USBIP_VENDOR_ID:-12d1}
+      USBIP_MIN_DEVICES: ${USBIP_MIN_DEVICES:-1}
+      USBIP_COMMAND_TIMEOUT: ${USBIP_COMMAND_TIMEOUT:-10}
+      USBIP_RETRY_INITIAL: ${USBIP_RETRY_INITIAL:-10}
+      USBIP_RETRY_MAX: ${USBIP_RETRY_MAX:-300}
+    volumes:
+      - /dev:/dev
+      - /sys:/sys
+      - /lib/modules:/lib/modules:ro
+    privileged: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "/usr/bin/usbip.sh", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
   asterisk:
     container_name: asterisk-dongle
     init: true
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        ASTERISK_BASE_IMAGE: ${ASTERISK_BASE_IMAGE:-andrius/asterisk@sha256:4cfb208f877b45e88115b35140b1edba06e1374e9bce4b6f5e55a84e60254b92}
+    entrypoint: ["/usr/bin/asterisk-entrypoint.sh"]
     network_mode: "host"
     environment:
-      - IMEI1=${IMEI1}
-      - IMEI2=${IMEI2}
-      - LOCAL_NET=${LOCAL_NET}
-      - PUBLIC_IP=${PUBLIC_IP}
-      - EXTEN_PASS=${EXTEN_PASS}
-      - USB_IP=${USB_IP}
+      IMEI1: ${IMEI1}
+      IMEI2: ${IMEI2}
+      LOCAL_NET: ${LOCAL_NET}
+      PUBLIC_IP: ${PUBLIC_IP}
+      EXTEN_PASS: ${EXTEN_PASS}
     volumes:
       - ./asterisk-config/dongle.template:/tmp/dongle.template:ro
       - ./asterisk-config/pjsip.template:/tmp/pjsip.template:ro
       - ./asterisk-config/extensions.template:/etc/asterisk/extensions.conf:ro
       - /dev:/dev
-      - /sys:/sys
-      - /lib/modules:/lib/modules:ro
-    command: >
-      sh -c "envsubst < /tmp/dongle.template > /etc/asterisk/dongle.conf && 
-             envsubst < /tmp/pjsip.template > /etc/asterisk/pjsip.conf &&
-             sh /usr/bin/usbip.sh &
-             mkdir -p /var/run/fail2ban &&
-             touch /var/log/asterisk/security.log &&
-             chown asterisk:asterisk /var/log/asterisk/security.log &&
-             chmod 660 /var/log/asterisk/security.log &&
-             /usr/bin/fail2ban-server -b -x start &&
-             exec /usr/sbin/asterisk -vvvdddf -T -W -U asterisk -p"
+    device_cgroup_rules:
+      - "c 188:* rwm"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
-    privileged: true
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD-SHELL", "asterisk -rx 'core waitfullybooted' >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

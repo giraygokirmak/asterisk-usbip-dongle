@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically reconcile Huawei USB/IP exports
+
+[Timer]
+OnBootSec=5
+OnUnitActiveSec=30
+AccuracySec=5
+Unit=usbip-huawei-bind.service
+
+[Install]
+WantedBy=timers.target
