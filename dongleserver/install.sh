@@ -6,7 +6,7 @@ if [[ $(id -u) -ne 0 ]]; then
     exit 1
 fi
 
-for command in usbip usbipd timeout systemctl udevadm modprobe; do
+for command in usbip usbipd timeout systemctl udevadm modprobe flock; do
     command -v "$command" >/dev/null || { echo "ERROR: missing required command: $command"; exit 1; }
 done
 usbip version >/dev/null 2>&1 || {
@@ -23,6 +23,7 @@ modinfo usbip-host >/dev/null 2>&1 || modinfo usbip_host >/dev/null 2>&1 || {
 systemctl disable --now usbip-huawei-monitor.service 2>/dev/null || true
 rm -f /etc/systemd/system/usbip-huawei-monitor.service
 install -m 0755 usbip-huawei-bind.sh /usr/local/bin/usbip-huawei-bind.sh
+install -m 0755 usbip-huawei-recover.sh /usr/local/sbin/usbip-huawei-recover
 install -m 0644 usbip-server.service /etc/systemd/system/usbip-server.service
 install -m 0644 usbip-huawei-bind.service /etc/systemd/system/usbip-huawei-bind.service
 install -m 0644 usbip-huawei-bind.timer /etc/systemd/system/usbip-huawei-bind.timer
@@ -30,7 +31,8 @@ install -m 0644 99-usbip-huawei.rules /etc/udev/rules.d/99-usbip-huawei.rules
 
 systemctl daemon-reload
 udevadm control --reload-rules
-systemctl enable --now usbip-server.service
+systemctl enable usbip-server.service
+systemctl restart usbip-server.service
 sleep 2
 systemctl start usbip-huawei-bind.service
 systemctl enable --now usbip-huawei-bind.timer

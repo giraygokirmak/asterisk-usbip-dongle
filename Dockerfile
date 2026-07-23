@@ -9,6 +9,8 @@ RUN apt-get update && \
 	usbip \
 	hwdata \
     coreutils \
+    procps \
+    util-linux \
     iputils-ping \
     fail2ban \
     iptables \

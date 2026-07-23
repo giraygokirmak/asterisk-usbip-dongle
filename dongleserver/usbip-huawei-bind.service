@@ -9,6 +9,11 @@ ExecStart=/usr/local/bin/usbip-huawei-bind.sh
 TimeoutStartSec=30
 PrivateTmp=yes
 NoNewPrivileges=yes
+Environment=USBIP_AUTO_RECOVER_STALE=0
+Environment=USBIP_STALL_THRESHOLD=20
+Environment="USBIP_STALL_WINDOW=120 seconds ago"
+Environment=USBIP_RECOVERY_COOLDOWN=300
+EnvironmentFile=-/etc/default/usbip-huawei
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=usbip-huawei-reconcile

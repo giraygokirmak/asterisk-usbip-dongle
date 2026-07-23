@@ -94,7 +94,7 @@ else
 fi
 
 # Check systemd services
-for service in usbip-server usbip-huawei-bind usbip-huawei-monitor; do
+for service in usbip-server usbip-huawei-bind usbip-huawei-bind.timer; do
     if [ -f "/etc/systemd/system/${service}.service" ]; then
         check_pass "${service}.service installed"
     else
@@ -125,7 +125,7 @@ if [ "$CURRENT_UID" -eq 0 ]; then
     echo "=== Checking Service Status ==="
     
     # Check services
-    for service in usbip-server usbip-huawei-bind usbip-huawei-monitor; do
+    for service in usbip-server usbip-huawei-bind usbip-huawei-bind.timer; do
         if systemctl is-enabled ${service}.service &> /dev/null; then
             check_pass "${service}.service is enabled"
         else

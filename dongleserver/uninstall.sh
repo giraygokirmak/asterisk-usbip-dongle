@@ -37,6 +37,7 @@ rm -f /etc/udev/rules.d/99-usbip-huawei.rules
 # Remove script
 echo "[4/4] Removing binding script..."
 rm -f /usr/local/bin/usbip-huawei-bind.sh
+rm -f /usr/local/sbin/usbip-huawei-recover
 
 # Reload systemd and udev
 systemctl daemon-reload
