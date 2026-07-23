@@ -12,7 +12,7 @@ cat >"$A/bin/usbip" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >>"$MOCK_CALLS"
 case "$1 $2" in
- "port ") printf 'Port 00: <Port in Use>\n    3-1 -> usbip://192.0.2.10:3240/1-2\n';;
+ "port ") printf 'Port 00: <Port in Use>\n       Huawei Technologies Co., Ltd. : E180v (12d1:140c)\n    3-1 -> unknown host, remote port and remote busid\n';;
  "list -r") printf 'Exportable USB devices\n';;
 esac
 MOCK
@@ -39,7 +39,7 @@ cat >"$C/bin/usbip" <<'MOCK'
 #!/bin/sh
 case "$1 $2" in
  "list -r") printf 'Exportable USB devices\n - 1-2: Huawei modem (12d1:1506)\n';;
- "port ") if [ -e "$MOCK_ATTACHED" ];then printf 'Port 00: <Port in Use>\n    3-1 -> usbip://192.0.2.10:3240/1-2\n';fi;exit 0;;
+ "port ") if [ -e "$MOCK_ATTACHED" ];then printf 'Port 00: <Port in Use>\n       Huawei Technologies Co., Ltd. : E180v (12d1:140c)\n    3-1 -> unknown host, remote port and remote busid\n';fi;exit 0;;
  "attach -r") mkdir -p "$MOCK_SYSFS/bus/usb/devices/3-1/3-1:1.0/ttyUSB0";printf '12d1\n' >"$MOCK_SYSFS/bus/usb/devices/3-1/idVendor";: >"$MOCK_ATTACHED";echo $$ >"$MOCK_CHILD_PID";sleep 60;;
 esac
 MOCK

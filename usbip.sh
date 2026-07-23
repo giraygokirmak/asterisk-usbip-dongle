@@ -24,7 +24,7 @@ case "$USBIP_VENDOR_ID" in [0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;; *) log "USBIP_VE
 command -v setsid >/dev/null 2>&1 || { log "setsid is required"; exit 2; }
 run_usbip() { timeout -k 5 "$USBIP_COMMAND_TIMEOUT" usbip "$@"; }
 remote_devices() { output=$(run_usbip list -r "$USB_IP" 2>&1); rc=$?; [ "$rc" -eq 0 ] || return "$rc"; printf '%s\n' "$output" | awk -v v="$USBIP_VENDOR_ID:" 'index(tolower($0),v){for(i=1;i<=NF;i++)if($i~/^[0-9]+-[0-9.]+:$/){gsub(/:$/,"",$i);print $i}}'; }
-attached_devices() { output=$(run_usbip port 2>/dev/null); rc=$?; [ "$rc" -eq 0 ] || return "$rc"; printf '%s\n' "$output" | awk '/^Port [0-9][0-9]*:/{p=$2;gsub(/:/,"",p)} / -> usbip:\/\//{x=$0;sub(/^[[:space:]]*/,"",x);split(x,s," -> ");n=split(s[2],a,"/");print p "|" s[1] "|" a[n]}'; }
+attached_devices() { output=$(run_usbip port 2>/dev/null); rc=$?; [ "$rc" -eq 0 ] || return "$rc"; printf '%s\n' "$output" | awk -v v="$USBIP_VENDOR_ID:" '/^Port [0-9][0-9]*:/{p=$2;gsub(/:/,"",p);match_vendor=0} index(tolower($0),v){match_vendor=1} match_vendor && /^[[:space:]]*[0-9]+-[0-9.]+ ->/{x=$0;sub(/^[[:space:]]*/,"",x);split(x,s," -> ");remote="unknown";if(index(s[2],"usbip://")){n=split(s[2],a,"/");remote=a[n]} print p "|" s[1] "|" remote;match_vendor=0}'; }
 record_for_remote() { printf '%s\n' "$ATTACHED_RECORDS" | awk -F'|' -v r="$1" '$3==r{print;exit}'; }
 tty_count_for_local() {
   b=$1; count=0
@@ -36,8 +36,8 @@ refresh_attached() { ATTACHED_RECORDS=$(attached_devices); }
 count_healthy_attached() { ATTACHED_COUNT=0; TTY_TOTAL=0; for r in $ATTACHED_RECORDS; do b=$(printf '%s' "$r"|cut -d'|' -f2); c=$(tty_count_for_local "$b"); if [ "$c" -gt 0 ]; then ATTACHED_COUNT=$((ATTACHED_COUNT+1)); TTY_TOTAL=$((TTY_TOTAL+c)); fi; done; }
 start_operation() { OP_LOG="$USBIP_RUN_DIR/operation.log"; : >"$OP_LOG"; setsid timeout -k 5 "$USBIP_COMMAND_TIMEOUT" usbip "$@" >"$OP_LOG" 2>&1 & OP_PID=$!; OP_PGID=$(ps -o pgid= -p "$OP_PID" 2>/dev/null | tr -d ' '); }
 stop_operation() { [ -n "$OP_PID" ] || return 0; /bin/kill -TERM -- "-${OP_PGID:-$OP_PID}" 2>/dev/null || true; /bin/kill -KILL -- "-${OP_PGID:-$OP_PID}" 2>/dev/null || true; output=$(sed -n '1,20p' "$OP_LOG" 2>/dev/null||true); [ -n "$output" ]&&log "$output"; OP_PID=""; OP_PGID=""; }
-wait_for_tty() { remote=$1; elapsed=0; while [ "$elapsed" -lt "$USBIP_TTY_SETTLE_TIMEOUT" ] && [ "$RUNNING" -eq 1 ]; do refresh_attached||true; r=$(record_for_remote "$remote"); if [ -n "$r" ]; then b=$(printf '%s' "$r"|cut -d'|' -f2); [ "$(tty_count_for_local "$b")" -gt 0 ]&&return 0; fi; sleep 1; elapsed=$((elapsed+1)); done; return 1; }
-attach_remote() { remote=$1; log "Attaching Huawei device $remote from $USB_IP"; start_operation attach -r "$USB_IP" -b "$remote"; if wait_for_tty "$remote"; then stop_operation; log "Huawei device $remote is imported and tty-ready"; return 0; fi; stop_operation; return 1; }
+wait_for_tty() { elapsed=0; while [ "$elapsed" -lt "$USBIP_TTY_SETTLE_TIMEOUT" ] && [ "$RUNNING" -eq 1 ]; do refresh_attached||true; count_healthy_attached; [ "$ATTACHED_COUNT" -ge "$USBIP_MIN_DEVICES" ]&&return 0; sleep 1;elapsed=$((elapsed+1));done;return 1; }
+attach_remote() { remote=$1; log "Attaching Huawei device $remote from $USB_IP"; start_operation attach -r "$USB_IP" -b "$remote"; if wait_for_tty; then stop_operation; log "Huawei device $remote is imported and tty-ready"; return 0; fi; stop_operation; return 1; }
 detach_remote() { port=$1; remote=$2; elapsed=0; log "Detaching unhealthy Huawei port $port"; start_operation detach -p "$port"; while [ "$elapsed" -lt "$USBIP_COMMAND_TIMEOUT" ]; do refresh_attached||true; [ -z "$(record_for_remote "$remote")" ]&&{ stop_operation;return 0;}; sleep 1;elapsed=$((elapsed+1));done;stop_operation;return 1; }
 reconcile() {
   refresh_attached||{ LAST_ERROR="local USB/IP port listing failed or timed out";return 1;}; count_healthy_attached; [ "$ATTACHED_COUNT" -ge "$USBIP_MIN_DEVICES" ]&&return 0
