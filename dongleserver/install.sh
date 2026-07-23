@@ -33,6 +33,8 @@ systemctl daemon-reload
 udevadm control --reload-rules
 systemctl enable usbip-server.service
 systemctl restart usbip-server.service
+systemctl is-active --quiet usbip-server.service || { echo "ERROR: usbip-server.service did not stay active"; systemctl --no-pager --full status usbip-server.service || true; exit 1; }
+pgrep -x usbipd >/dev/null || { echo "ERROR: usbipd process is missing after service restart"; exit 1; }
 sleep 2
 systemctl start usbip-huawei-bind.service
 systemctl enable --now usbip-huawei-bind.timer

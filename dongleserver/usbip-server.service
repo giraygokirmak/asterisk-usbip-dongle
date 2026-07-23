@@ -4,9 +4,9 @@ Documentation=man:usbipd(8)
 After=network.target
 
 [Service]
-Type=simple
+Type=forking
 ExecStartPre=/sbin/modprobe usbip-host
-ExecStart=/usr/sbin/usbipd -4
+ExecStart=/usr/bin/usbipd -D -4
 KillMode=control-group
 Restart=on-failure
 RestartSec=5
